@@ -1,6 +1,12 @@
 #include "hc12.h"
 
-void HC12::_cmd_mode( const bool onoff )
+hc12::BaseHC12::BaseHC12( uint8_t _cmd ) : cmd( _cmd )
+{
+  pinMode( cmd, OUTPUT );
+  digitalWrite( cmd, HIGH );
+}
+
+void hc12::BaseHC12::_cmd_mode( const bool onoff )
 {
   if( digitalRead( cmd ) != ( onoff ? LOW : HIGH ) )
   {
@@ -9,7 +15,7 @@ void HC12::_cmd_mode( const bool onoff )
   }
 }
 
-HC12::_Cmd HC12::_send_cmd( const char* atcmd, 
+hc12::BaseHC12::_Cmd hc12::BaseHC12::_send_cmd( const char* atcmd, 
                 size_t timeout, 
                 const bool debug )
 {
@@ -18,18 +24,18 @@ HC12::_Cmd HC12::_send_cmd( const char* atcmd,
   _cmd_mode( true );
 
   // bookend the statement correctly
-  ss.write( "AT+" );
-  ss.write( atcmd );
-  ss.write( "\r\n" );
+  _write( "AT+" );
+  _write( atcmd );
+  _write( "\r\n" );
 
   _Cmd result;
   String *buffer = &(result.confirm);    
 
   while( millis()-start <= timeout )
   {
-    if( ss.available() )
+    if( _available() )
     {
-      char c = ss.read();
+      char c = _read();
       switch( c )
       {
         case '+': buffer = &(result.value); continue;
@@ -44,7 +50,8 @@ HC12::_Cmd HC12::_send_cmd( const char* atcmd,
   return result;
 }
 
-bool HC12::_confirm_cmd( const char* atcmd, const char* value, 
+
+bool hc12::BaseHC12::_confirm_cmd( const char* atcmd, const char* value, 
                           size_t timeout, 
                           const bool debug )
 {
@@ -68,7 +75,7 @@ bool HC12::_confirm_cmd( const char* atcmd, const char* value,
   {
     size_t baud = result.optional.substring(1).toInt();
     if( debug ) { Serial.print( "Change baud to: " ); Serial.println( baud ); }
-    ss.begin( baud );
+    _begin( baud );
 
     // HC12 has changed baud rate so force an exit from cmd_mode
     _cmd_mode( false ); 
@@ -85,7 +92,7 @@ bool HC12::_confirm_cmd( const char* atcmd, const char* value,
   return true;      
 }
 
-bool HC12::set_transmit_mode( UART_MODE mode )
+bool hc12::BaseHC12::set_transmit_mode( hc12::TRANSMIT_MODE mode )
 {
   String atcmd = "FU";
 
@@ -103,12 +110,12 @@ bool HC12::set_transmit_mode( UART_MODE mode )
   return result;
 }
 
-bool HC12::set_transmit_mode( UART_NAME mode )
+bool hc12::BaseHC12::set_transmit_mode( hc12::TRANSMIT_NAME mode )
 {
-  return set_transmit_mode( (UART_MODE)mode );
+  return set_transmit_mode( (hc12::TRANSMIT_MODE)mode );
 }
 
-HC12::UART_MODE HC12::get_transmit_mode()
+hc12::TRANSMIT_MODE hc12::BaseHC12::get_transmit_mode()
 {
   _Cmd response = _send_cmd( "RF" );
 
@@ -125,7 +132,7 @@ HC12::UART_MODE HC12::get_transmit_mode()
 }
 
 
-bool HC12::set_channel( const uint8_t channel )
+bool hc12::BaseHC12::set_channel( const uint8_t channel )
 {
   /*AT+Cxxx
 Change wireless communication channel, selectable from 001 to 127 (for wireless
@@ -141,7 +148,7 @@ default value for the wireless channel is 001, with a working frequency of
   return _confirm_cmd( atcmd, atcmd );
 }
 
-uint8_t HC12::get_channel()
+uint8_t hc12::BaseHC12::get_channel()
 {
   /* Send command “AT+RC” to the module, and if the module returns “OK+RC001” it is
 confirmed that the communication channel of the module is 001. */
@@ -158,13 +165,19 @@ confirmed that the communication channel of the module is 001. */
   return channel;
 }
 
-void HC12::transparent()
+void hc12::BaseHC12::transparent()
 {
   _cmd_mode( false );
 }
 
+void hc12::BaseHC12::write( const char *msg )
+{
+  _cmd_mode( false );
 
-bool HC12::sendMessage( byte action, bool ack, const char *fmt, ... )
+  write( msg );
+}
+
+bool hc12::BaseHC12::sendMessage( byte action, bool ack, const char *fmt, ... )
 {
   _cmd_mode( false );
 
@@ -178,12 +191,12 @@ bool HC12::sendMessage( byte action, bool ack, const char *fmt, ... )
   return sent;
 }
 
-bool HC12::sendMessage( byte action, bool ack )
+bool hc12::BaseHC12::sendMessage( byte action, bool ack )
 {
   return sc.sendMessage( action, ack );
 }
 
-bool HC12::sendAck( const char *fmt, ... )
+bool hc12::BaseHC12::sendAck( const char *fmt, ... )
 {
   _cmd_mode( false );
 
@@ -191,13 +204,13 @@ bool HC12::sendAck( const char *fmt, ... )
   return sc.sendAck( fmt, args ); 
 }
 
-bool HC12:: sendAck()
+bool hc12::BaseHC12:: sendAck()
 {
   _cmd_mode( false );
   return sc.sendAck();
 }
 
-bool HC12::init()
+bool hc12::BaseHC12::begin()
 {
   static const int bauds = 8;
   static const uint32_t baudRates[bauds] = 
@@ -207,7 +220,7 @@ bool HC12::init()
 
   for( int i=0; i<bauds; ++i )
   {
-    ss.begin( baudRates[i] );
+    _begin( baudRates[i] );
 
     snprintf( okcmd, sizeof(okcmd), "B%d", baudRates[i] );
     if( _confirm_cmd( atcmd, okcmd ) ) 
@@ -217,26 +230,28 @@ bool HC12::init()
   return false;
 }
 
-bool HC12::sleep()
+bool hc12::BaseHC12::sleep()
 {
   static const char* cmd = "SLEEP";
   return _confirm_cmd( cmd, cmd );
 }
 
-bool HC12::wake()
+bool hc12::BaseHC12::wake()
 {
   return _confirm_cmd( "", "" );
 } 
 
-bool HC12::restore_defaults()
+bool hc12::BaseHC12::restore_defaults()
 {
   static const char* cmd = "DEFAULT";
   return _confirm_cmd( cmd, cmd );
 }
 
-HC12::HC12( uint8_t RX, uint8_t TX, uint8_t CMD ) : 
+/*HC12::HC12( uint8_t RX, uint8_t TX, uint8_t CMD ) : 
   ss( RX, TX ), sc( ss ), cmd( CMD )
 {
   pinMode( cmd, OUTPUT );
   digitalWrite( cmd, HIGH );
-}
+}*/
+
+
