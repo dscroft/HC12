@@ -18,12 +18,8 @@ namespace hc12
       String optional;
     };
 
-    SerialComm sc;
     const uint8_t cmd;
     
-    /* bring the CMD pin low to put the HC12 in command mode, needed so we can configure it */
-    void _cmd_mode( const bool onoff );
-
     _Cmd _send_cmd( const char* atcmd, 
                     size_t timeout=500, 
                     const bool debug=false );
@@ -36,11 +32,21 @@ namespace hc12
                             const bool debug=false );                  
 
   protected:
-    virtual void _begin( long ) {}
-    virtual size_t _write( const char* ) { return -1; }
-    virtual int _read() { return -1; }
-    virtual int _available() { return -1; }
-    
+    /* bring the CMD pin low to put the HC12 in command mode, needed so we can configure it */
+    void _cmd_mode( const bool onoff );
+
+    /* needed for BaseHC12 behaviour
+      you might ask why have _functions rather than just inheriting from
+      Stream and overriding the functions properly? well these _functions
+      are only used when the hc12 is in command mode as opposed to the 
+      overridden functions that are used when it's in transparent mode and
+      the behaviour is slightly different */
+    virtual void _begin( long ) = 0;
+    virtual size_t _write( const char* ) = 0;
+    virtual int _read() = 0;
+    virtual int _available() = 0;
+    virtual  void _flush() = 0;
+
     BaseHC12( uint8_t _cmd );
 
   public:
@@ -66,64 +72,91 @@ namespace hc12
     bool set_channel( const uint8_t channel );
     uint8_t get_channel();
 
-    void write( const char *msg );
-
-    bool sendMessage( byte action, bool ack, const char *fmt, ... );
-    bool sendMessage( byte action, bool ack );
-
-    bool sendAck( const char *fmt, ... );
-    bool sendAck();
-
-    /* Trouble is that we can't know on boot what the current settings on the HC12 
+     /* Trouble is that we can't know on boot what the current settings on the HC12 
       are and therefore what the baud rate is. So try all the supported speeds until 
       we find one that works */
     bool begin();
   };
 
   template<typename S>
-  class HC12: public BaseHC12
+  class HC12: public Stream, public BaseHC12
   {
   private:
     S& serial;
 
+    // needed by BaseHC12
     void _begin( long speed );
     size_t _write( const char* byte );
     int _read();
     int _available();
+    void _flush();
 
   public:
-    HC12( S& _serial, uint8_t _cmd );
-  };
+    // needed by Stream
+    size_t write( uint8_t byte );    
+    int peek();
+    int read();
+    int available();
 
+    HC12( S& _serial, uint8_t _cmd );
+    HC12( S&& _serial, uint8_t _cmd);
+  };
 };
 
 template<typename S>
-void hc12::HC12<S>::_begin( long speed ) 
+void hc12::HC12<S>::_begin( long speed )         { serial.begin( speed ); }
+template<typename S>
+size_t hc12::HC12<S>::_write( const char* byte ) { return serial.write( byte ); }
+template<typename S>
+int hc12::HC12<S>::_read()                       { return serial.read(); }
+template<typename S>
+int hc12::HC12<S>::_available()                  { return serial.available(); }
+template<typename S>
+void hc12::HC12<S>::_flush()                     { return serial.flush(); }
+
+template<typename S>
+int hc12::HC12<S>::peek() 
 { 
-  serial.begin(speed); 
+  _cmd_mode( false );
+  return serial.peek(); 
 }
 
 template<typename S>
-size_t hc12::HC12<S>::_write( const char* byte ) 
+size_t hc12::HC12<S>::write( uint8_t byte ) 
 { 
+  _cmd_mode( false );
+  return serial.write( byte ); 
+}
+
+/*template<typename S>
+size_t hc12::HC12<S>::write( const char* byte ) 
+{ 
+  _cmd_mode( false );
   return serial.write(byte); 
-}
+}*/
 
 template<typename S>
-int hc12::HC12<S>::_read() 
+int hc12::HC12<S>::read() 
 { 
+  _cmd_mode( false );
   return serial.read(); 
 }
 
 template<typename S>
-int hc12::HC12<S>::_available() 
+int hc12::HC12<S>::available() 
 { 
+  _cmd_mode( false );
   return serial.available(); 
 }
 
 template<typename S>
 hc12::HC12<S>::HC12( S& _serial, uint8_t _cmd )
   : BaseHC12(_cmd), serial(_serial) 
+{}
+
+template<typename S>
+hc12::HC12<S>::HC12( S&& _serial, uint8_t _cmd )
+  : BaseHC12(_cmd), serial(_serial)
 {}
 
 #endif

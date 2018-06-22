@@ -11,6 +11,7 @@ void hc12::BaseHC12::_cmd_mode( const bool onoff )
   if( digitalRead( cmd ) != ( onoff ? LOW : HIGH ) )
   {
       digitalWrite( cmd, onoff ? LOW : HIGH );
+      _flush();
       delay( onoff ? 40 : 80 );
   }
 }
@@ -168,46 +169,6 @@ confirmed that the communication channel of the module is 001. */
 void hc12::BaseHC12::transparent()
 {
   _cmd_mode( false );
-}
-
-void hc12::BaseHC12::write( const char *msg )
-{
-  _cmd_mode( false );
-
-  write( msg );
-}
-
-bool hc12::BaseHC12::sendMessage( byte action, bool ack, const char *fmt, ... )
-{
-  _cmd_mode( false );
-
-  bool sent = false;
-  va_list args;
-  for( size_t attempt=0; !sent; ++attempt )
-  {
-    sent = sc.sendMessage( action, ack, fmt, args );
-  }
-
-  return sent;
-}
-
-bool hc12::BaseHC12::sendMessage( byte action, bool ack )
-{
-  return sc.sendMessage( action, ack );
-}
-
-bool hc12::BaseHC12::sendAck( const char *fmt, ... )
-{
-  _cmd_mode( false );
-
-  va_list args;
-  return sc.sendAck( fmt, args ); 
-}
-
-bool hc12::BaseHC12:: sendAck()
-{
-  _cmd_mode( false );
-  return sc.sendAck();
 }
 
 bool hc12::BaseHC12::begin()
