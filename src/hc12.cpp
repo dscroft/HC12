@@ -11,13 +11,13 @@ void hc12::BaseHC12::_cmd_mode( const bool onoff )
   if( digitalRead( cmd ) != ( onoff ? LOW : HIGH ) )
   {
       digitalWrite( cmd, onoff ? LOW : HIGH );
+      delay( 200 );
       _flush();
-      delay( onoff ? 40 : 80 );
   }
 }
 
 hc12::BaseHC12::_Cmd hc12::BaseHC12::_send_cmd( const char* atcmd, 
-                size_t timeout, 
+                //size_t timeout, 
                 const bool debug )
 {
   const unsigned long start = millis();
@@ -53,29 +53,36 @@ hc12::BaseHC12::_Cmd hc12::BaseHC12::_send_cmd( const char* atcmd,
 
 
 bool hc12::BaseHC12::_confirm_cmd( const char* atcmd, const char* value, 
-                          size_t timeout, 
+                          //size_t timeout, 
                           const bool debug )
 {
   if( debug )
   {
-    Serial.print( "atcmd: " ); Serial.println( atcmd );
+    Serial.println();
+    Serial.println( "DEBUG confirm cmd" );
+    Serial.print( "DEBUG atcmd: " ); Serial.println( atcmd );
     if( value != nullptr )
-    { Serial.print( "value: " ); Serial.println( value ); }
+    { 
+      Serial.print( "DEBUG value: " ); Serial.println( value ); 
+    }
   }
 
-  _Cmd result = _send_cmd( atcmd, timeout, debug );
+  _Cmd result = _send_cmd( atcmd, debug );
 
   if( debug )
   {
-    Serial.println( result.confirm );
-    Serial.println( result.value );
-    Serial.println( result.optional );
+    Serial.print( "DEBUG confirm:  " ); Serial.println( result.confirm );
+    Serial.print( "DEBUG value:    " ); Serial.println( result.value );
+    Serial.print( "DEBUG optional: " ); Serial.println( result.optional );
   }
 
   if( result.optional.startsWith( "B" ) )
   {
     size_t baud = result.optional.substring(1).toInt();
-    if( debug ) { Serial.print( "Change baud to: " ); Serial.println( baud ); }
+    if( debug ) 
+    { 
+      Serial.print( "DEBUG change baud: " ); Serial.println( baud ); 
+    }
     _begin( baud );
 
     // HC12 has changed baud rate so force an exit from cmd_mode
@@ -171,7 +178,7 @@ void hc12::BaseHC12::transparent()
   _cmd_mode( false );
 }
 
-bool hc12::BaseHC12::begin()
+bool hc12::BaseHC12::begin(bool debug)
 {
   static const int bauds = 8;
   static const uint32_t baudRates[bauds] = 
@@ -182,9 +189,10 @@ bool hc12::BaseHC12::begin()
   for( int i=0; i<bauds; ++i )
   {
     _begin( baudRates[i] );
+    _cmd_mode( false );
 
     snprintf( okcmd, sizeof(okcmd), "B%d", baudRates[i] );
-    if( _confirm_cmd( atcmd, okcmd ) ) 
+    if( _confirm_cmd( atcmd, okcmd, debug ) ) 
       return true;
   }
 

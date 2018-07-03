@@ -21,17 +21,18 @@ namespace hc12
     const uint8_t cmd;
     
     _Cmd _send_cmd( const char* atcmd, 
-                    size_t timeout=500, 
+                    //size_t timeout=500, 
                     const bool debug=false );
 
   /* send AT commands to the hc12, 
       if optional 'value' parameter is set then will return true/false depening on
       if hc12 responds with that */
     bool _confirm_cmd( const char* atcmd, const char* value=nullptr, 
-                            size_t timeout=500, 
+                            //size_t timeout=500, 
                             const bool debug=false );                  
 
   protected:
+    size_t timeout = 5000;
     /* bring the CMD pin low to put the HC12 in command mode, needed so we can configure it */
     void _cmd_mode( const bool onoff );
 
@@ -75,7 +76,7 @@ namespace hc12
      /* Trouble is that we can't know on boot what the current settings on the HC12 
       are and therefore what the baud rate is. So try all the supported speeds until 
       we find one that works */
-    bool begin();
+    bool begin(bool debug=false);
   };
 
   template<typename S>
