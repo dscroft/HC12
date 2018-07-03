@@ -94,7 +94,9 @@ namespace hc12
 
   public:
     // needed by Stream
-    size_t write( uint8_t byte );    
+    size_t write( uint8_t byte );   
+    //size_t write( uint8_t byte ); 
+    using Print::write;
     int peek();
     int read();
     int available();
