@@ -34,6 +34,10 @@ hc12::BaseHC12::_Cmd hc12::BaseHC12::_send_cmd( const char* atcmd,
 
   while( millis()-start <= timeout )
   {
+#ifdef wdt_reset
+    wdt_reset();
+#endif
+
     if( _available() )
     {
       char c = _read();
@@ -207,7 +211,7 @@ bool hc12::BaseHC12::sleep()
 
 bool hc12::BaseHC12::wake()
 {
-  return _confirm_cmd( "", "" );
+  return _confirm_cmd( "", "", true );
 } 
 
 bool hc12::BaseHC12::restore_defaults()
