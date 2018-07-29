@@ -1,7 +1,7 @@
 #ifndef HC12_H
 #define HC12_H
 
-#include <serialcomm.h>
+#include <Arduino.h>
 
 namespace hc12
 {
@@ -20,8 +20,7 @@ namespace hc12
 
     const uint8_t cmd;
     
-    _Cmd _send_cmd( const char* atcmd, 
-                    //size_t timeout=500, 
+    _Cmd _send_cmd( const char* atcmd,  
                     const bool debug=false );
 
   /* send AT commands to the hc12, 
